@@ -31,7 +31,7 @@ def fetch_option_chain(symbol, expiry_choice):
 
         if not all([API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET]):
             st.error("❌ API credentials not set. Please add them in Streamlit Secrets.")
-            return pd.DataFrame(), pd.DataFrame()
+            return pd.DataFrame(), pd.DataFrame(), None
 
         obj = SmartConnect(api_key=API_KEY)
         totp = pyotp.TOTP(TOTP_SECRET).now()
@@ -44,7 +44,7 @@ def fetch_option_chain(symbol, expiry_choice):
 
         if df.empty:
             st.error("⚠️ No contracts found for this expiry in instruments list.")
-            return pd.DataFrame(), pd.DataFrame()
+            return pd.DataFrame(), pd.DataFrame(), obj
 
         # Debug: show first few rows of contracts
         st.write("🔍 Filtered Contracts (first 10):")
@@ -59,7 +59,7 @@ def fetch_option_chain(symbol, expiry_choice):
         strikes = sorted(df['strike'].unique())
         if not strikes:
             st.error("⚠️ No strike prices found.")
-            return pd.DataFrame(), pd.DataFrame()
+            return pd.DataFrame(), pd.DataFrame(), obj
 
         atm = min(strikes, key=lambda x: abs(x - spot_price))
         st.write("📌 ATM Strike:", atm)
@@ -99,17 +99,20 @@ def fetch_option_chain(symbol, expiry_choice):
 
         df_ce = pd.DataFrame(ce_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
         df_pe = pd.DataFrame(pe_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
-        return df_ce, df_pe
+        return df_ce, df_pe, obj
     
     except Exception as e:
         st.error(f"Angel fetch failed: {e}")
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), None
 
-def market_status():
-    now = datetime.datetime.now().time()
-    open_time = datetime.time(9, 15)
-    close_time = datetime.time(15, 30)
-    return open_time <= now <= close_time
+def market_status(obj):
+    try:
+        status = obj.rmsLimit()
+        exch_status = status['data']['equity']['exchangeStatus']
+        return exch_status == "OPEN"
+    except Exception as e:
+        st.warning(f"⚠️ Could not fetch market status: {e}")
+        return False
 
 # ------------------- UI -------------------
 st.title("📊 Option Chain Dashboard (Angel One SmartAPI)")
@@ -119,7 +122,7 @@ instruments = load_instruments()
 expiry_list = sorted(instruments[instruments['name'] == index_choice]['expiry'].unique())
 expiry_choice = st.selectbox("Select Expiry", expiry_list)
 
-ce_df, pe_df = fetch_option_chain(index_choice, expiry_choice)
+ce_df, pe_df, obj = fetch_option_chain(index_choice, expiry_choice)
 
 if not ce_df.empty and not pe_df.empty:
     col1, col2 = st.columns(2)
@@ -148,7 +151,8 @@ if not ce_df.empty and not pe_df.empty:
         st.info("Neutral bias")
 
     # Market status
-    st.markdown(f"**Market Status:** {'🟢 OPEN' if market_status() else '🔴 CLOSED'}")
+    is_open = market_status(obj) if obj else False
+    st.markdown(f"**Market Status:** {'🟢 OPEN' if is_open else '🔴 CLOSED'}")
     st.caption(f"Last updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 # Auto-refresh

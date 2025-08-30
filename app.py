@@ -40,15 +40,18 @@ def fetch_option_chain(symbol, expiry_choice):
         instruments = load_instruments()
         df = instruments[(instruments['name'] == symbol) & 
                          (instruments['exch_seg'] == 'NFO') & 
-                         (instruments['instrumenttype'] == 'OPTIDX') & 
                          (instruments['expiry'] == expiry_choice)]
 
         # Get spot price using Angel static tokens
         spot = obj.ltpData("NSE", symbol, INDEX_TOKENS[symbol])
         spot_price = spot['data']['ltp']
 
-        # Find ATM
+        # Find ATM safely
         strikes = sorted(df['strike'].unique())
+        if not strikes:
+            st.error("⚠️ No option contracts found for this expiry.")
+            return pd.DataFrame(), pd.DataFrame()
+
         atm = min(strikes, key=lambda x: abs(x - spot_price))
 
         # Limit to ±10 strikes

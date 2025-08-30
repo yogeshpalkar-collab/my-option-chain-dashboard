@@ -1,48 +1,50 @@
 import streamlit as st
-import requests
 import pandas as pd
 import plotly.express as px
+from SmartApi import SmartConnect
+import pyotp
+import os
 import datetime
 
 st.set_page_config(page_title="Option Chain Dashboard", layout="wide")
 
 # ------------------- CONFIG -------------------
-INDICES = {
-    "NIFTY": "NIFTY",
-    "BANKNIFTY": "BANKNIFTY",
-    "FINNIFTY": "FINNIFTY"
-}
+INDICES = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
 REFRESH_INTERVAL = 60  # seconds
-NSE_URL = "https://www.nseindia.com/api/option-chain-indices?symbol="
 
 # ------------------- FUNCTIONS -------------------
-@st.cache_data(ttl=60)
 def fetch_option_chain(symbol):
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "accept-language": "en,hi;q=0.9",
-        "accept-encoding": "gzip, deflate, br",
-    }
-    session = requests.Session()
-    session.get("https://www.nseindia.com", headers=headers)
-    response = session.get(NSE_URL + symbol, headers=headers)
-    data = response.json()
-    return data
+    try:
+        API_KEY = os.getenv("ANGEL_API_KEY")
+        CLIENT_ID = os.getenv("ANGEL_CLIENT_ID")
+        PASSWORD = os.getenv("ANGEL_PASSWORD")
+        TOTP_SECRET = os.getenv("ANGEL_TOTP")
 
-def parse_option_chain(data):
-    ce_data = []
-    pe_data = []
-    for item in data["records"]["data"]:
-        strike = item.get("strikePrice")
-        if "CE" in item:
-            ce = item["CE"]
-            ce_data.append([strike, ce["openInterest"], ce["changeinOpenInterest"], ce["lastPrice"]])
-        if "PE" in item:
-            pe = item["PE"]
-            pe_data.append([strike, pe["openInterest"], pe["changeinOpenInterest"], pe["lastPrice"]])
-    df_ce = pd.DataFrame(ce_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
-    df_pe = pd.DataFrame(pe_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
-    return df_ce, df_pe
+        if not all([API_KEY, CLIENT_ID, PASSWORD, TOTP_SECRET]):
+            st.error("❌ API credentials not set. Please add them in Streamlit Secrets.")
+            return pd.DataFrame(), pd.DataFrame()
+
+        obj = SmartConnect(api_key=API_KEY)
+        totp = pyotp.TOTP(TOTP_SECRET).now()
+        data = obj.generateSession(CLIENT_ID, PASSWORD, totp)
+
+        option_data = obj.optionChain(symbol)
+        
+        ce_data, pe_data = [], []
+        for item in option_data['data']:
+            strike = item['strikePrice']
+            if item['optionType'] == 'CE':
+                ce_data.append([strike, item['openInterest'], item['changeinOpenInterest'], item['lastPrice']])
+            elif item['optionType'] == 'PE':
+                pe_data.append([strike, item['openInterest'], item['changeinOpenInterest'], item['lastPrice']])
+        
+        df_ce = pd.DataFrame(ce_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
+        df_pe = pd.DataFrame(pe_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
+        return df_ce, df_pe
+    
+    except Exception as e:
+        st.error(f"Angel fetch failed: {e}")
+        return pd.DataFrame(), pd.DataFrame()
 
 def market_status():
     now = datetime.datetime.now().time()
@@ -51,14 +53,12 @@ def market_status():
     return open_time <= now <= close_time
 
 # ------------------- UI -------------------
-st.title("📊 Option Chain Dashboard")
-index_choice = st.selectbox("Select Index", list(INDICES.keys()))
+st.title("📊 Option Chain Dashboard (Angel One SmartAPI)")
+index_choice = st.selectbox("Select Index", INDICES)
 
-try:
-    raw_data = fetch_option_chain(INDICES[index_choice])
-    ce_df, pe_df = parse_option_chain(raw_data)
+ce_df, pe_df = fetch_option_chain(index_choice)
 
-    # Layout
+if not ce_df.empty and not pe_df.empty:
     col1, col2 = st.columns(2)
 
     with col1:
@@ -87,9 +87,6 @@ try:
     # Market status
     st.markdown(f"**Market Status:** {'🟢 OPEN' if market_status() else '🔴 CLOSED'}")
     st.caption(f"Last updated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-except Exception as e:
-    st.error(f"Error fetching data: {e}")
 
 # Auto-refresh
 st_autorefresh = st.empty()

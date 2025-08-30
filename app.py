@@ -5,7 +5,6 @@ from SmartApi import SmartConnect
 import pyotp
 import os
 import datetime
-import requests
 
 st.set_page_config(page_title="Option Chain Dashboard", layout="wide")
 
@@ -13,6 +12,9 @@ st.set_page_config(page_title="Option Chain Dashboard", layout="wide")
 INDICES = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
 REFRESH_INTERVAL = 60  # seconds
 INSTRUMENTS_URL = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+
+# Angel tokens for index spot prices
+INDEX_TOKENS = {"NIFTY": "26000", "BANKNIFTY": "26009", "FINNIFTY": "26037"}
 
 # ------------------- FUNCTIONS -------------------
 @st.cache_data(ttl=3600)
@@ -41,9 +43,11 @@ def fetch_option_chain(symbol, expiry_choice):
                          (instruments['instrumenttype'] == 'OPTIDX') & 
                          (instruments['expiry'] == expiry_choice)]
 
-        # Get ATM from index spot price
-        spot = obj.ltpData("NSE", symbol, df[df['strike'] == 0].iloc[0]['token'])
+        # Get spot price using Angel static tokens
+        spot = obj.ltpData("NSE", symbol, INDEX_TOKENS[symbol])
         spot_price = spot['data']['ltp']
+
+        # Find ATM
         strikes = sorted(df['strike'].unique())
         atm = min(strikes, key=lambda x: abs(x - spot_price))
 

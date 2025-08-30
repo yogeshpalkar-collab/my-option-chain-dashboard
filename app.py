@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from SmartApi.smartConnect import SmartConnect
+from SmartApi import SmartConnect
 import pyotp
 import os
 import datetime

@@ -42,17 +42,27 @@ def fetch_option_chain(symbol, expiry_choice):
                          (instruments['exch_seg'] == 'NFO') & 
                          (instruments['expiry'] == expiry_choice)]
 
+        if df.empty:
+            st.error("⚠️ No contracts found for this expiry in instruments list.")
+            return pd.DataFrame(), pd.DataFrame()
+
+        # Debug: show first few rows of contracts
+        st.write("🔍 Filtered Contracts (first 10):")
+        st.dataframe(df.head(10))
+
         # Get spot price using Angel static tokens
         spot = obj.ltpData("NSE", symbol, INDEX_TOKENS[symbol])
         spot_price = spot['data']['ltp']
+        st.write(f"📌 Spot Price ({symbol}):", spot_price)
 
         # Find ATM safely
         strikes = sorted(df['strike'].unique())
         if not strikes:
-            st.error("⚠️ No option contracts found for this expiry.")
+            st.error("⚠️ No strike prices found.")
             return pd.DataFrame(), pd.DataFrame()
 
         atm = min(strikes, key=lambda x: abs(x - spot_price))
+        st.write("📌 ATM Strike:", atm)
 
         # Limit to ±10 strikes
         strike_range = [s for s in strikes if atm-1000 <= s <= atm+1000]
@@ -62,15 +72,21 @@ def fetch_option_chain(symbol, expiry_choice):
             params = {"exchange": row['exch_seg'], "tradingsymbol": row['symbol'], "symboltoken": row['token']}
             try:
                 q = obj.ltpData(**params)
-                ltp = q['data']['ltp']
+                if not q or 'data' not in q:
+                    st.warning(f"⚠️ No data for {row['symbol']}")
+                    continue
+
+                ltp = q['data'].get('ltp', 0)
                 oi = q['data'].get('openInterest', 0)
                 coi = q['data'].get('changeinOpenInterest', 0)
+
                 if row['optiontype'] == 'CE':
                     ce_data.append([row['strike'], oi, coi, ltp])
                 else:
                     pe_data.append([row['strike'], oi, coi, ltp])
-            except Exception:
-                pass
+            except Exception as ex:
+                st.warning(f"⚠️ API error for {row['symbol']}: {ex}")
+                continue
 
         df_ce = pd.DataFrame(ce_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
         df_pe = pd.DataFrame(pe_data, columns=["Strike", "OI", "Chg_OI", "LTP"])

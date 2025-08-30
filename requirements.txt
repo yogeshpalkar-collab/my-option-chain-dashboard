@@ -4,3 +4,4 @@ plotly
 smartapi-python
 pyotp
 logzero
+websocket-client

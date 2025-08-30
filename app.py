@@ -80,10 +80,19 @@ def fetch_option_chain(symbol, expiry_choice):
                 oi = q['data'].get('openInterest', 0)
                 coi = q['data'].get('changeinOpenInterest', 0)
 
-                if row['optiontype'] == 'CE':
+                # Detect CE/PE
+                opt_type = row.get('optiontype', None)
+                if not opt_type:
+                    if str(row['symbol']).endswith("CE"):
+                        opt_type = "CE"
+                    elif str(row['symbol']).endswith("PE"):
+                        opt_type = "PE"
+
+                if opt_type == "CE":
                     ce_data.append([row['strike'], oi, coi, ltp])
-                else:
+                elif opt_type == "PE":
                     pe_data.append([row['strike'], oi, coi, ltp])
+
             except Exception as ex:
                 st.warning(f"⚠️ API error for {row['symbol']}: {ex}")
                 continue

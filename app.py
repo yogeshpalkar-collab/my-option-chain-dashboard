@@ -5,15 +5,22 @@ from SmartApi import SmartConnect
 import pyotp
 import os
 import datetime
+import requests
 
 st.set_page_config(page_title="Option Chain Dashboard", layout="wide")
 
 # ------------------- CONFIG -------------------
 INDICES = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
 REFRESH_INTERVAL = 60  # seconds
+INSTRUMENTS_URL = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
 
 # ------------------- FUNCTIONS -------------------
-def fetch_option_chain(symbol):
+@st.cache_data(ttl=3600)
+def load_instruments():
+    df = pd.read_json(INSTRUMENTS_URL)
+    return df
+
+def fetch_option_chain(symbol, expiry_choice):
     try:
         API_KEY = os.getenv("ANGEL_API_KEY")
         CLIENT_ID = os.getenv("ANGEL_CLIENT_ID")
@@ -28,16 +35,36 @@ def fetch_option_chain(symbol):
         totp = pyotp.TOTP(TOTP_SECRET).now()
         data = obj.generateSession(CLIENT_ID, PASSWORD, totp)
 
-        option_data = obj.optionChain(symbol)
-        
+        instruments = load_instruments()
+        df = instruments[(instruments['name'] == symbol) & 
+                         (instruments['exch_seg'] == 'NFO') & 
+                         (instruments['instrumenttype'] == 'OPTIDX') & 
+                         (instruments['expiry'] == expiry_choice)]
+
+        # Get ATM from index spot price
+        spot = obj.ltpData("NSE", symbol, df[df['strike'] == 0].iloc[0]['token'])
+        spot_price = spot['data']['ltp']
+        strikes = sorted(df['strike'].unique())
+        atm = min(strikes, key=lambda x: abs(x - spot_price))
+
+        # Limit to ±10 strikes
+        strike_range = [s for s in strikes if atm-1000 <= s <= atm+1000]
+
         ce_data, pe_data = [], []
-        for item in option_data['data']:
-            strike = item['strikePrice']
-            if item['optionType'] == 'CE':
-                ce_data.append([strike, item['openInterest'], item['changeinOpenInterest'], item['lastPrice']])
-            elif item['optionType'] == 'PE':
-                pe_data.append([strike, item['openInterest'], item['changeinOpenInterest'], item['lastPrice']])
-        
+        for _, row in df[df['strike'].isin(strike_range)].iterrows():
+            params = {"exchange": row['exch_seg'], "tradingsymbol": row['symbol'], "symboltoken": row['token']}
+            try:
+                q = obj.ltpData(**params)
+                ltp = q['data']['ltp']
+                oi = q['data'].get('openInterest', 0)
+                coi = q['data'].get('changeinOpenInterest', 0)
+                if row['optiontype'] == 'CE':
+                    ce_data.append([row['strike'], oi, coi, ltp])
+                else:
+                    pe_data.append([row['strike'], oi, coi, ltp])
+            except Exception:
+                pass
+
         df_ce = pd.DataFrame(ce_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
         df_pe = pd.DataFrame(pe_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
         return df_ce, df_pe
@@ -56,7 +83,11 @@ def market_status():
 st.title("📊 Option Chain Dashboard (Angel One SmartAPI)")
 index_choice = st.selectbox("Select Index", INDICES)
 
-ce_df, pe_df = fetch_option_chain(index_choice)
+instruments = load_instruments()
+expiry_list = sorted(instruments[instruments['name'] == index_choice]['expiry'].unique())
+expiry_choice = st.selectbox("Select Expiry", expiry_list)
+
+ce_df, pe_df = fetch_option_chain(index_choice, expiry_choice)
 
 if not ce_df.empty and not pe_df.empty:
     col1, col2 = st.columns(2)

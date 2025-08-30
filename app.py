@@ -46,14 +46,9 @@ def fetch_option_chain(symbol, expiry_choice):
             st.error("⚠️ No contracts found for this expiry in instruments list.")
             return pd.DataFrame(), pd.DataFrame(), obj
 
-        # Debug: show first few rows of contracts
-        st.write("🔍 Filtered Contracts (first 10):")
-        st.dataframe(df.head(10))
-
         # Get spot price using Angel static tokens
         spot = obj.ltpData("NSE", symbol, INDEX_TOKENS[symbol])
         spot_price = spot['data']['ltp']
-        st.write(f"📌 Spot Price ({symbol}):", spot_price)
 
         # Find ATM safely
         strikes = sorted(df['strike'].unique())
@@ -62,7 +57,6 @@ def fetch_option_chain(symbol, expiry_choice):
             return pd.DataFrame(), pd.DataFrame(), obj
 
         atm = min(strikes, key=lambda x: abs(x - spot_price))
-        st.write("📌 ATM Strike:", atm)
 
         # Limit to ±10 strikes
         strike_range = [s for s in strikes if atm-1000 <= s <= atm+1000]
@@ -73,7 +67,6 @@ def fetch_option_chain(symbol, expiry_choice):
             try:
                 q = obj.ltpData(**params)
                 if not q or 'data' not in q:
-                    st.warning(f"⚠️ No data for {row['symbol']}")
                     continue
 
                 ltp = q['data'].get('ltp', 0)
@@ -93,8 +86,7 @@ def fetch_option_chain(symbol, expiry_choice):
                 elif opt_type == "PE":
                     pe_data.append([row['strike'], oi, coi, ltp])
 
-            except Exception as ex:
-                st.warning(f"⚠️ API error for {row['symbol']}: {ex}")
+            except Exception:
                 continue
 
         df_ce = pd.DataFrame(ce_data, columns=["Strike", "OI", "Chg_OI", "LTP"])
@@ -108,8 +100,12 @@ def fetch_option_chain(symbol, expiry_choice):
 def market_status(obj):
     try:
         status = obj.rmsLimit()
-        exch_status = status['data']['equity']['exchangeStatus']
-        return exch_status == "OPEN"
+        exch_data = status.get('data', {})
+        # Check any available exchange segment
+        for seg in exch_data.values():
+            if isinstance(seg, dict) and seg.get('exchangeStatus') == "OPEN":
+                return True
+        return False
     except Exception as e:
         st.warning(f"⚠️ Could not fetch market status: {e}")
         return False

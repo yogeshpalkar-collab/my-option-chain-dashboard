@@ -3,3 +3,4 @@ pandas
 plotly
 smartapi-python
 pyotp
+logzero

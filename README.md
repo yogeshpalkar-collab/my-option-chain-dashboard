@@ -1,4 +1,4 @@
-# Secured Option Chain Dashboard (Render Deployment with .env Secret File)
+# Secured Option Chain Dashboard (Render Deployment with .env Secret File, Dual Path Support)
 
 ## Setup on Render with Secret File
 1. Push this project to GitHub.
@@ -20,5 +20,5 @@
 
 ## Notes
 - Python version is pinned to 3.11.9 (via runtime.txt)
-- Secrets are read from `/etc/secrets/.env` using python-dotenv
-- Much simpler than typing many environment variables
+- App tries both `/etc/secrets/.env` and `./.env`
+- This ensures secrets load correctly regardless of Render's mount path

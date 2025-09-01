@@ -5,8 +5,11 @@ import matplotlib.pyplot as plt
 import os
 from dotenv import load_dotenv
 
-# ---------------- LOAD SECRETS FROM /etc/secrets/.env ----------------
-load_dotenv("/etc/secrets/.env")
+# ---------------- LOAD SECRETS FROM SECRET FILE ----------------
+if os.path.exists("/etc/secrets/.env"):
+    load_dotenv("/etc/secrets/.env")
+elif os.path.exists(".env"):
+    load_dotenv(".env")
 
 MASTER_PASSWORD = os.getenv("MASTER_PASSWORD")
 API_KEY = os.getenv("API_KEY")
@@ -16,7 +19,7 @@ TOTP = os.getenv("TOTP")
 
 # ---------------- SANITY CHECK ----------------
 if not MASTER_PASSWORD or not API_KEY or not CLIENT_ID or not PASSWORD or not TOTP:
-    st.error("❌ Missing secrets. Ensure /etc/secrets/.env is uploaded in Render → Settings → Secret Files.")
+    st.error("❌ Missing secrets. Ensure .env is uploaded in Render → Settings → Secret Files (filename must be .env).")
     st.stop()
 
 # ---------------- PASSWORD PROTECTION ----------------

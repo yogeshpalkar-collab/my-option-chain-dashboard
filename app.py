@@ -22,7 +22,7 @@ if not st.session_state["authenticated"]:
     if st.button("Login"):
         if password == st.secrets["MASTER_PASSWORD"]:
             st.session_state["authenticated"] = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Incorrect password")
     st.stop()
@@ -45,7 +45,7 @@ def get_connection():
     except Exception as e:
         st.error(f"❌ SmartAPI Login Failed: {e}")
         if st.button("🔄 Retry Login"):
-            st.experimental_rerun()
+            st.rerun()
         return None
 
 if "smart_api" not in st.session_state:

@@ -1,25 +1,30 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import datetime as dt
 import matplotlib.pyplot as plt
+import os
 
-# ---------------- SANITY CHECK FOR SMARTAPI ----------------
-try:
-    from SmartApi import SmartConnect
-    SMARTAPI_AVAILABLE = True
-except ImportError:
-    SMARTAPI_AVAILABLE = False
+# ---------------- LOAD SECRETS FROM ENV ----------------
+MASTER_PASSWORD = os.getenv("MASTER_PASSWORD")
+API_KEY = os.getenv("API_KEY")
+CLIENT_ID = os.getenv("CLIENT_ID")
+PASSWORD = os.getenv("PASSWORD")
+TOTP = os.getenv("TOTP")
+
+# ---------------- SANITY CHECK ----------------
+if not MASTER_PASSWORD or not API_KEY or not CLIENT_ID or not PASSWORD or not TOTP:
+    st.error("❌ Missing environment variables. Please set MASTER_PASSWORD, API_KEY, CLIENT_ID, PASSWORD, and TOTP in Render settings.")
+    st.stop()
 
 # ---------------- PASSWORD PROTECTION ----------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.title("🔒 Secured Dashboard")
+    st.title("🔒 Secured Dashboard (Render)")
     password = st.text_input("Enter Master Password", type="password")
     if st.button("Login"):
-        if password == st.secrets["MASTER_PASSWORD"]:
+        if password == MASTER_PASSWORD:
             st.session_state["authenticated"] = True
             st.rerun()
         else:
@@ -27,19 +32,24 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ---------------- STREAMLIT APP BEGINS ----------------
-st.title("📊 Option Chain Dashboard (Secured)")
+st.title("📊 Option Chain Dashboard (Secured on Render)")
 
-# Check if SmartApi is available
+# Import SmartApi only if available
+try:
+    from SmartApi import SmartConnect
+    SMARTAPI_AVAILABLE = True
+except ImportError:
+    SMARTAPI_AVAILABLE = False
+
 if not SMARTAPI_AVAILABLE:
-    st.error("❌ 'SmartApi' module not found.")
-    st.info("👉 Fix: Ensure 'smartapi-python' is in requirements.txt and redeploy with a clean environment.")
+    st.error("❌ SmartApi package not found. Ensure smartapi-python is in requirements.txt.")
     st.stop()
 
 # Authenticate with SmartAPI
 def get_connection():
     try:
-        obj = SmartConnect(api_key=st.secrets["API_KEY"])
-        data = obj.generateSession(st.secrets["CLIENT_ID"], st.secrets["PASSWORD"], st.secrets["TOTP"])
+        obj = SmartConnect(api_key=API_KEY)
+        data = obj.generateSession(CLIENT_ID, PASSWORD, TOTP)
         return obj
     except Exception as e:
         st.error(f"❌ SmartAPI Login Failed: {e}")
@@ -60,36 +70,31 @@ index_symbol = st.selectbox("Select Index", ["NIFTY", "BANKNIFTY", "FINNIFTY"])
 # ---------------- FETCH OPTION CHAIN ----------------
 @st.cache_data(ttl=60)
 def fetch_option_chain(symbol):
-    try:
-        strikes = np.arange(22000, 23000, 100)
-        data = {
-            "StrikePrice": strikes,
-            "CE_OI": np.random.randint(1000, 5000, len(strikes)),
-            "PE_OI": np.random.randint(1000, 5000, len(strikes)),
-            "CE_LTP": np.random.randint(50, 250, len(strikes)),
-            "PE_LTP": np.random.randint(50, 250, len(strikes)),
-        }
-        return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"❌ Failed to fetch option chain: {e}")
-        return pd.DataFrame()
+    # Placeholder for Angel One API call
+    strikes = np.arange(22000, 23000, 100)
+    data = {
+        "StrikePrice": strikes,
+        "CE_OI": np.random.randint(1000, 5000, len(strikes)),
+        "PE_OI": np.random.randint(1000, 5000, len(strikes)),
+        "CE_LTP": np.random.randint(50, 250, len(strikes)),
+        "PE_LTP": np.random.randint(50, 250, len(strikes)),
+    }
+    return pd.DataFrame(data)
 
 df = fetch_option_chain(index_symbol)
-if df.empty:
-    st.stop()
 
-# ---------------- CALCULATE CPR ----------------
+# ---------------- CPR ----------------
 def calculate_cpr(high, low, close):
     pp = (high + low + close) / 3
     bc = (high + low) / 2
     tc = (pp - bc) + pp
     return pp, bc, tc
 
-high, low, close = 22600, 22400, 22500  # Placeholder
+high, low, close = 22600, 22400, 22500
 pp, bc, tc = calculate_cpr(high, low, close)
 
-# ---------------- SUMMARY PANEL ----------------
-spot_price = 22500  # Placeholder
+# ---------------- SUMMARY ----------------
+spot_price = 22500
 atm_strike = min(df["StrikePrice"], key=lambda x: abs(x - spot_price))
 
 col1, col2, col3 = st.columns(3)
@@ -101,7 +106,7 @@ with col3:
     bias = "BULLISH" if df["CE_OI"].sum() < df["PE_OI"].sum() else "BEARISH"
     st.metric("Bias", bias)
 
-# ---------------- GO/NO-GO PANEL ----------------
+# ---------------- GO/NO-GO ----------------
 st.subheader("🚦 GO/NO-GO Panel")
 if bias == "BULLISH":
     st.success("✅ GO CALL")
@@ -123,7 +128,7 @@ ax.set_ylabel("Open Interest")
 ax.legend()
 st.pyplot(fig)
 
-# ---------------- CE vs PE Change in OI ----------------
+# ---------------- Change in OI ----------------
 st.subheader("Change in OI (Synthetic Demo)")
 df["CE_Change_OI"] = np.random.randint(-500, 500, len(df))
 df["PE_Change_OI"] = np.random.randint(-500, 500, len(df))
@@ -137,25 +142,16 @@ ax2.set_ylabel("Change in OI")
 ax2.legend()
 st.pyplot(fig2)
 
-# ---------------- OI TABLE ----------------
+# ---------------- OI Table ----------------
 st.subheader("Option Chain Table")
 st.dataframe(df)
 
-# ---------------- CHECKLIST ----------------
+# ---------------- Checklist ----------------
 st.subheader("📋 Live Checklist")
-checklist_items = [
-    "Spot above/below CPR",
-    "Bias confirmed",
-    "GO/NO-GO matched",
-    "OI supports bias",
-]
-for item in checklist_items:
+for item in ["Spot above/below CPR", "Bias confirmed", "GO/NO-GO matched", "OI supports bias"]:
     st.checkbox(item)
 
-# ---------------- SIGNAL HISTORY ----------------
+# ---------------- Signal History ----------------
 st.subheader("📜 Signal History")
-history = [
-    {"time": "09:30", "signal": "GO CALL"},
-    {"time": "11:15", "signal": "GO PUT"},
-]
+history = [{"time": "09:30", "signal": "GO CALL"}, {"time": "11:15", "signal": "GO PUT"}]
 st.table(pd.DataFrame(history))

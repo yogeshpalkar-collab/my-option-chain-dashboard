@@ -1,11 +1,10 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime as dt
 import matplotlib.pyplot as plt
 
-# Dependency check for SmartAPI
+# ---------------- SANITY CHECK FOR SMARTAPI ----------------
 try:
     from SmartApi import SmartConnect
     SMARTAPI_AVAILABLE = True
@@ -30,10 +29,10 @@ if not st.session_state["authenticated"]:
 # ---------------- STREAMLIT APP BEGINS ----------------
 st.title("📊 Option Chain Dashboard (Secured)")
 
-# If SmartAPI is not available → stop with clear message
+# Check if SmartApi is available
 if not SMARTAPI_AVAILABLE:
-    st.error("❌ 'smartapi-python' package is not installed. Please add it to requirements.txt.")
-    st.info("👉 Fix: Add 'smartapi-python' to requirements.txt and redeploy the app.")
+    st.error("❌ 'SmartApi' module not found.")
+    st.info("👉 Fix: Ensure 'smartapi-python' is in requirements.txt and redeploy with a clean environment.")
     st.stop()
 
 # Authenticate with SmartAPI
@@ -62,7 +61,6 @@ index_symbol = st.selectbox("Select Index", ["NIFTY", "BANKNIFTY", "FINNIFTY"])
 @st.cache_data(ttl=60)
 def fetch_option_chain(symbol):
     try:
-        # Placeholder for Angel One API call (replace with live implementation)
         strikes = np.arange(22000, 23000, 100)
         data = {
             "StrikePrice": strikes,
@@ -87,11 +85,11 @@ def calculate_cpr(high, low, close):
     tc = (pp - bc) + pp
     return pp, bc, tc
 
-high, low, close = 22600, 22400, 22500  # Placeholder values
+high, low, close = 22600, 22400, 22500  # Placeholder
 pp, bc, tc = calculate_cpr(high, low, close)
 
 # ---------------- SUMMARY PANEL ----------------
-spot_price = 22500  # Placeholder; should be fetched from live data
+spot_price = 22500  # Placeholder
 atm_strike = min(df["StrikePrice"], key=lambda x: abs(x - spot_price))
 
 col1, col2, col3 = st.columns(3)

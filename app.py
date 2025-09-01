@@ -5,7 +5,7 @@ import numpy as np
 import datetime as dt
 import matplotlib.pyplot as plt
 
-# Try importing SmartAPI gracefully
+# Dependency check for SmartAPI
 try:
     from smartapi import SmartConnect
     SMARTAPI_AVAILABLE = True
@@ -30,9 +30,10 @@ if not st.session_state["authenticated"]:
 # ---------------- STREAMLIT APP BEGINS ----------------
 st.title("📊 Option Chain Dashboard (Secured)")
 
-# If SmartAPI is not available
+# If SmartAPI is not available → stop with clear message
 if not SMARTAPI_AVAILABLE:
-    st.error("❌ SmartAPI package not found. Please ensure 'smartapi-python' is listed in requirements.txt.")
+    st.error("❌ 'smartapi-python' package is not installed. Please add it to requirements.txt.")
+    st.info("👉 Fix: Add 'smartapi-python' to requirements.txt and redeploy the app.")
     st.stop()
 
 # Authenticate with SmartAPI

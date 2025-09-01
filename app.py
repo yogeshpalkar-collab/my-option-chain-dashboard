@@ -2,18 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 
-# ---------------- LOAD SECRETS FROM RAILWAY VARIABLES ----------------
-MASTER_PASSWORD = os.getenv("MASTER_PASSWORD")
-API_KEY = os.getenv("API_KEY")
-CLIENT_ID = os.getenv("CLIENT_ID")
-PASSWORD = os.getenv("PASSWORD")
-TOTP = os.getenv("TOTP")
-
-# ---------------- SANITY CHECK ----------------
-if not MASTER_PASSWORD or not API_KEY or not CLIENT_ID or not PASSWORD or not TOTP:
-    st.error("❌ Missing secrets. Please add them in Railway → Variables tab.")
+# ---------------- LOAD SECRETS FROM st.secrets ----------------
+try:
+    MASTER_PASSWORD = st.secrets["MASTER_PASSWORD"]
+    API_KEY = st.secrets["API_KEY"]
+    CLIENT_ID = st.secrets["CLIENT_ID"]
+    PASSWORD = st.secrets["PASSWORD"]
+    TOTP = st.secrets["TOTP"]
+except Exception:
+    st.error("❌ Missing secrets. Please configure them in Streamlit Cloud → App Settings → Secrets.")
     st.stop()
 
 # ---------------- PASSWORD PROTECTION ----------------
@@ -21,7 +19,7 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.title("🔒 Secured Dashboard (Railway Deployment)")
+    st.title("🔒 Secured Dashboard (Streamlit Cloud)")
     password = st.text_input("Enter Master Password", type="password")
     if st.button("Login"):
         if password == MASTER_PASSWORD:
@@ -32,7 +30,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ---------------- STREAMLIT APP BEGINS ----------------
-st.title("📊 Option Chain Dashboard (Secured on Railway)")
+st.title("📊 Option Chain Dashboard (Streamlit Cloud Version)")
 
 # Import SmartApi only if available
 try:

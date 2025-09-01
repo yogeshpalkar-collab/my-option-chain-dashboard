@@ -1,23 +1,20 @@
-# Secured Option Chain Dashboard (Railway Deployment)
+# Secured Option Chain Dashboard (Streamlit Cloud Safe Version)
 
-## Setup on Railway
+## Setup on Streamlit Cloud
 1. Push this project to GitHub.
-2. On Railway.app → Create new project → Deploy from GitHub repo.
-3. Build command:
-   pip install -r requirements.txt
-4. Start command (auto from Procfile):
-   streamlit run app.py --server.port $PORT --server.address 0.0.0.0
-5. In Railway dashboard:
-   - Go to Variables tab
-   - Add the following secrets:
-       MASTER_PASSWORD=your_master_password
-       API_KEY=your_api_key
-       CLIENT_ID=your_client_id
-       PASSWORD=your_password
-       TOTP=your_totp
-6. Deploy → first build may take 5–10 minutes.
+2. On Streamlit Cloud → Create new app → Connect GitHub repo.
+3. Make sure files are at repo root: app.py, requirements.txt, runtime.txt, Procfile, README.md.
+4. In Streamlit Cloud → App Settings → Secrets, add:
+
+MASTER_PASSWORD="your_master_password"
+API_KEY="your_api_key"
+CLIENT_ID="your_client_id"
+PASSWORD="your_password"
+TOTP="your_totp"
+
+5. Deploy. First build may take 5–10 minutes.
 
 ## Notes
-- Python version is pinned to 3.11.9 (via runtime.txt)
-- Secrets are read directly from Railway Variables (os.getenv)
-- Simpler than Render because no .env file handling is needed
+- Uses `st.secrets` (no .env needed)
+- Python pinned to 3.11.9 (if Streamlit supports it)
+- Dependencies pinned for stability

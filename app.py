@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # Dependency check for SmartAPI
 try:
-    from smartapi import SmartConnect
+    from SmartApi import SmartConnect
     SMARTAPI_AVAILABLE = True
 except ImportError:
     SMARTAPI_AVAILABLE = False

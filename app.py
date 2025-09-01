@@ -2,10 +2,15 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import requests
 import datetime as dt
 import matplotlib.pyplot as plt
-from smartapi import SmartConnect
+
+# Try importing SmartAPI gracefully
+try:
+    from smartapi import SmartConnect
+    SMARTAPI_AVAILABLE = True
+except ImportError:
+    SMARTAPI_AVAILABLE = False
 
 # ---------------- PASSWORD PROTECTION ----------------
 if "authenticated" not in st.session_state:
@@ -25,18 +30,27 @@ if not st.session_state["authenticated"]:
 # ---------------- STREAMLIT APP BEGINS ----------------
 st.title("📊 Option Chain Dashboard (Secured)")
 
+# If SmartAPI is not available
+if not SMARTAPI_AVAILABLE:
+    st.error("❌ SmartAPI package not found. Please ensure 'smartapi-python' is listed in requirements.txt.")
+    st.stop()
+
 # Authenticate with SmartAPI
-@st.cache_resource(show_spinner=False)
 def get_connection():
     try:
         obj = SmartConnect(api_key=st.secrets["API_KEY"])
         data = obj.generateSession(st.secrets["CLIENT_ID"], st.secrets["PASSWORD"], st.secrets["TOTP"])
         return obj
     except Exception as e:
-        st.error(f"Login Failed: {e}")
+        st.error(f"❌ SmartAPI Login Failed: {e}")
+        if st.button("🔄 Retry Login"):
+            st.experimental_rerun()
         return None
 
-smart_api = get_connection()
+if "smart_api" not in st.session_state:
+    st.session_state["smart_api"] = get_connection()
+
+smart_api = st.session_state["smart_api"]
 if not smart_api:
     st.stop()
 
@@ -46,18 +60,24 @@ index_symbol = st.selectbox("Select Index", ["NIFTY", "BANKNIFTY", "FINNIFTY"])
 # ---------------- FETCH OPTION CHAIN ----------------
 @st.cache_data(ttl=60)
 def fetch_option_chain(symbol):
-    # Placeholder for actual Angel One API calls
-    strikes = np.arange(22000, 23000, 100)
-    data = {
-        "StrikePrice": strikes,
-        "CE_OI": np.random.randint(1000, 5000, len(strikes)),
-        "PE_OI": np.random.randint(1000, 5000, len(strikes)),
-        "CE_LTP": np.random.randint(50, 250, len(strikes)),
-        "PE_LTP": np.random.randint(50, 250, len(strikes)),
-    }
-    return pd.DataFrame(data)
+    try:
+        # Placeholder for Angel One API call (replace with live implementation)
+        strikes = np.arange(22000, 23000, 100)
+        data = {
+            "StrikePrice": strikes,
+            "CE_OI": np.random.randint(1000, 5000, len(strikes)),
+            "PE_OI": np.random.randint(1000, 5000, len(strikes)),
+            "CE_LTP": np.random.randint(50, 250, len(strikes)),
+            "PE_LTP": np.random.randint(50, 250, len(strikes)),
+        }
+        return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"❌ Failed to fetch option chain: {e}")
+        return pd.DataFrame()
 
 df = fetch_option_chain(index_symbol)
+if df.empty:
+    st.stop()
 
 # ---------------- CALCULATE CPR ----------------
 def calculate_cpr(high, low, close):

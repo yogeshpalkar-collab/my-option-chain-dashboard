@@ -3,14 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from dotenv import load_dotenv
 
-# ---------------- LOAD SECRETS FROM SECRET FILE ----------------
-if os.path.exists("/etc/secrets/.env"):
-    load_dotenv("/etc/secrets/.env")
-elif os.path.exists(".env"):
-    load_dotenv(".env")
-
+# ---------------- LOAD SECRETS FROM RAILWAY VARIABLES ----------------
 MASTER_PASSWORD = os.getenv("MASTER_PASSWORD")
 API_KEY = os.getenv("API_KEY")
 CLIENT_ID = os.getenv("CLIENT_ID")
@@ -19,7 +13,7 @@ TOTP = os.getenv("TOTP")
 
 # ---------------- SANITY CHECK ----------------
 if not MASTER_PASSWORD or not API_KEY or not CLIENT_ID or not PASSWORD or not TOTP:
-    st.error("❌ Missing secrets. Ensure .env is uploaded in Render → Settings → Secret Files (filename must be .env).")
+    st.error("❌ Missing secrets. Please add them in Railway → Variables tab.")
     st.stop()
 
 # ---------------- PASSWORD PROTECTION ----------------
@@ -27,7 +21,7 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.title("🔒 Secured Dashboard (Render, .env Secrets)")
+    st.title("🔒 Secured Dashboard (Railway Deployment)")
     password = st.text_input("Enter Master Password", type="password")
     if st.button("Login"):
         if password == MASTER_PASSWORD:
@@ -38,7 +32,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ---------------- STREAMLIT APP BEGINS ----------------
-st.title("📊 Option Chain Dashboard (Secured on Render)")
+st.title("📊 Option Chain Dashboard (Secured on Railway)")
 
 # Import SmartApi only if available
 try:

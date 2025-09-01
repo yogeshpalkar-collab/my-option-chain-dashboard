@@ -3,8 +3,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from dotenv import load_dotenv
 
-# ---------------- LOAD SECRETS FROM ENV ----------------
+# ---------------- LOAD SECRETS FROM /etc/secrets/.env ----------------
+load_dotenv("/etc/secrets/.env")
+
 MASTER_PASSWORD = os.getenv("MASTER_PASSWORD")
 API_KEY = os.getenv("API_KEY")
 CLIENT_ID = os.getenv("CLIENT_ID")
@@ -13,7 +16,7 @@ TOTP = os.getenv("TOTP")
 
 # ---------------- SANITY CHECK ----------------
 if not MASTER_PASSWORD or not API_KEY or not CLIENT_ID or not PASSWORD or not TOTP:
-    st.error("❌ Missing environment variables. Please set MASTER_PASSWORD, API_KEY, CLIENT_ID, PASSWORD, and TOTP in Render settings.")
+    st.error("❌ Missing secrets. Ensure /etc/secrets/.env is uploaded in Render → Settings → Secret Files.")
     st.stop()
 
 # ---------------- PASSWORD PROTECTION ----------------
@@ -21,7 +24,7 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.title("🔒 Secured Dashboard (Render)")
+    st.title("🔒 Secured Dashboard (Render, .env Secrets)")
     password = st.text_input("Enter Master Password", type="password")
     if st.button("Login"):
         if password == MASTER_PASSWORD:
